@@ -1,0 +1,30 @@
+# Exclude all executables
+*.exe
+*.out
+*.app
+
+# Exclude build directories
+build/
+Debug/
+Release/
+
+# Exclude VS Code specific files
+.vscode/
+*.code-workspace
+
+# Exclude compilation database
+compile_commands.json
+
+# Exclude object files and libraries
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+
+# Exclude Windows-specific files
+*.ilk
+*.pdb
+*.idb 
