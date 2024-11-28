@@ -1,3 +1,29 @@
+/*
+ * This program simulates a grid-based urban planning model using 
+ * agent-based preferences and spatial constraints. It initializes 
+ * a X by Y grid with predefined land use types (e.g., Residential, 
+ * Office, Commercial Shops, Cafes, Roads) and calculates scores 
+ * based on the proximity of agents (e.g., Residential, Office) to 
+ * specific land use types. Simulated Annealing is used to optimize 
+ * the placement of agents on the grid to maximize the total score.
+ *
+ * Key Features:
+ * - Customisable grid with multiple land use and agent types.
+ * - Proximity-based scoring using BFS for distance computation.
+ * - Optimization using Simulated Annealing to improve grid scores.
+ *
+ * Complexity Analysis:
+ * 1. Grid Initialization: O(n*m), where n and m are grid dimensions.
+ * 2. Distance Map Computation (BFS): O(n*m*k), where k is the number 
+ *    of fixed land use cells.
+ * 3. Simulated Annealing Optimization: O(t * (n*m)), where t is the 
+ *    number of iterations.
+ * Overall Complexity: O(n*m*(k + t)), typically scalable for small grids.
+ *
+ * Author: Taizhong Chen | taizhong.chen@zaha-hadid.com
+ * Date: 28.11.2024
+ */
+
 #define _MAIN_
 #ifdef _MAIN_
 
