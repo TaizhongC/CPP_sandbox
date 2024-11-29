@@ -1,10 +1,10 @@
 /*
- * This program simulates a grid-based urban planning model using 
- * agent-based preferences and spatial constraints. It initializes 
- * a X by Y grid with predefined land use types (e.g., Residential, 
- * Office, Commercial Shops, Cafes, Roads) and calculates scores 
- * based on the proximity of agents (e.g., Residential, Office) to 
- * specific land use types. Simulated Annealing is used to optimize 
+ * This program simulates a grid-based urban planning model using
+ * agent-based preferences and spatial constraints. It initializes
+ * a X by Y grid with predefined land use types (e.g., Residential,
+ * Office, Commercial Shops, Cafes, Roads) and calculates scores
+ * based on the proximity of agents (e.g., Residential, Office) to
+ * specific land use types. Simulated Annealing is used to optimize
  * the placement of agents on the grid to maximize the total score.
  *
  * Key Features:
@@ -14,9 +14,9 @@
  *
  * Complexity Analysis:
  * 1. Grid Initialization: O(n*m), where n and m are grid dimensions.
- * 2. Distance Map Computation (BFS): O(n*m*k), where k is the number 
+ * 2. Distance Map Computation (BFS): O(n*m*k), where k is the number
  *    of fixed land use cells.
- * 3. Simulated Annealing Optimization: O(t * (n*m)), where t is the 
+ * 3. Simulated Annealing Optimization: O(t * (n*m)), where t is the
  *    number of iterations.
  * Overall Complexity: O(n*m*(k + t)), typically scalable for small grids.
  *
@@ -419,6 +419,119 @@ void generateGrid_input(vector<vector<CellType>> &grid, map<CellType, double> ag
     }
 }
 
+// Generate grid with heuristic-based agent placement on input grid
+void generateGrid_heuristic(vector<vector<CellType>> &grid, map<CellType, double> agentPercentages, const map<CellType, vector<vector<double>>> &distanceMaps)
+{
+    // Identify empty cells
+    vector<pair<int, int>> emptyCells;
+    for (int i = 0; i < ROWS; ++i)
+        for (int j = 0; j < COLS; ++j)
+            if (grid[i][j] == EMPTY)
+                emptyCells.emplace_back(i, j);
+
+    int availableCells = emptyCells.size();
+
+    // Calculate the number of each agent type to place
+    map<CellType, int> agentCounts;
+    int totalAgents = 0;
+    for (CellType agentType : agentTypes)
+    {
+        int count = static_cast<int>(agentPercentages[agentType] * availableCells);
+        agentCounts[agentType] = count;
+        totalAgents += count;
+    }
+
+    // Adjust for any rounding errors
+    while (totalAgents < availableCells)
+    {
+        // Assign remaining cells to random agent types
+        CellType randomAgent = agentTypes[rand() % agentTypes.size()];
+        agentCounts[randomAgent]++;
+        totalAgents++;
+    }
+
+    // For each agent type, calculate preference scores for all empty cells
+    map<CellType, vector<tuple<double, int, int>>> agentCellScores;
+    for (CellType agentType : agentTypes)
+    {
+        const vector<float> &preferences = agentPreferences[agentType];
+        vector<tuple<double, int, int>> cellScores; // (score, x, y)
+
+        for (const auto &cell : emptyCells)
+        {
+            int i = cell.first;
+            int j = cell.second;
+            double score = 0.0;
+
+            // Calculate preference score for this cell
+            for (size_t k = 0; k < landUseTypes.size(); ++k)
+            {
+                CellType landUseType = landUseTypes[k];
+                float preference = preferences[k];
+                double distance = distanceMaps.at(landUseType)[i][j];
+
+                if (distance > 0.0 && distance < numeric_limits<double>::max())
+                {
+                    score += preference / distance;
+                }
+            }
+
+            cellScores.emplace_back(-score, i, j); // Negative score for descending sort
+        }
+
+        // Sort cells based on scores (descending)
+        sort(cellScores.begin(), cellScores.end());
+
+        agentCellScores[agentType] = cellScores;
+    }
+
+    // Assign agents to cells based on highest preference scores
+    vector<vector<bool>> occupied(ROWS, vector<bool>(COLS, false));
+    for (const auto &cell : emptyCells)
+    {
+        occupied[cell.first][cell.second] = false;
+    }
+
+    for (CellType agentType : agentTypes)
+    {
+        int agentsToPlace = agentCounts[agentType];
+        vector<tuple<double, int, int>> &cellScores = agentCellScores[agentType];
+        int placedAgents = 0;
+
+        for (const auto &entry : cellScores)
+        {
+            if (placedAgents >= agentsToPlace)
+                break;
+
+            double score = -get<0>(entry); // Original score
+            int i = get<1>(entry);
+            int j = get<2>(entry);
+
+            if (!occupied[i][j])
+            {
+                grid[i][j] = agentType;
+                occupied[i][j] = true;
+                placedAgents++;
+            }
+        }
+
+        // If not all agents placed (due to conflicts), assign randomly
+        while (placedAgents < agentsToPlace)
+        {
+            int idx = rand() % emptyCells.size();
+            int i = emptyCells[idx].first;
+            int j = emptyCells[idx].second;
+
+            if (!occupied[i][j])
+            {
+                grid[i][j] = agentType;
+                occupied[i][j] = true;
+                placedAgents++;
+            }
+        }
+    }
+}
+
 int main()
 {
     srand(static_cast<unsigned int>(time(0)));
@@ -468,11 +581,6 @@ int main()
         {EMPTY, EMPTY, EMPTY, TRANSPORT, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, TRANSPORT, EMPTY, EMPTY},
         {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, PUBLIC, PUBLIC, PUBLIC, EMPTY, EMPTY, EMPTY, EMPTY}};
 
-    generateGrid_input(grid, agentPercentages);
-
-    cout << "Initial Grid:" << endl;
-    printGrid(grid);
-
     // Compute distance maps
     auto distanceStart = high_resolution_clock::now();
     map<CellType, vector<vector<double>>> distanceMaps = computeDistanceMaps(grid);
@@ -486,6 +594,11 @@ int main()
     auto initialScoreDuration = duration_cast<milliseconds>(initialScoreEnd - initialScoreStart);
     cout << "Initial Score: " << initialScore << endl;
     cout << "Initial Score Computation Time: " << initialScoreDuration.count() << " milliseconds" << endl;
+
+    generateGrid_input(grid, agentPercentages);
+    //generateGrid_heuristic(grid, agentPercentages, distanceMaps);
+    cout << "Initial Grid:" << endl;
+    printGrid(grid);
 
     auto optimisationStart = high_resolution_clock::now();
 
